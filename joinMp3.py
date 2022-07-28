@@ -13,24 +13,27 @@ class JoinMp3Options():
         self.timeCapPerFile = 0
         self.fileTitle = ""
         self.output = ""
+        self.dirChar = ""
     def isDir(self, path):
         if(os.path.isdir(path)):
             return True
         return False
-    def getAllMp3Files(self):
-        dirChar = "\\"
+    def trySetDirChar(self):
+        self.dirChar = "\\"
         if("/" in self.pathToFiles):
-            dirChar = "/"
-        if(not self.pathToFiles.endswith(dirChar)):
-            self.pathToFiles += dirChar
-        if(not self.output.endswith(dirChar) and dirChar not in [None, "", " "]):
-            self.output += dirChar
-        mp3s = glob.glob(self.pathToFiles+"*.mp3")
+            self.dirChar = "/"
+    def getAllMp3Files(self):
+        if (not self.dirChar):
+            self.trySetDirChar()
+        if(not self.pathToFiles.endswith(self.dirChar)):
+            self.pathToFiles += self.dirChar
+        if(not self.output.endswith(self.dirChar) and self.output not in [None, "", " "]):
+            self.output += self.dirChar
+        mp3s = glob.glob(self.pathToFiles + "*.mp3")
         return smartSort(mp3s)
 
-
 def main(args: argparse.Namespace):
-    if(os.path.isfile(args.config)):
+    if(args.config and os.path.isfile(args.config)):
         options = getOptionsFromFile(args.config)
     else:
         options = getOptionsFromUser()
@@ -40,30 +43,35 @@ def main(args: argparse.Namespace):
     if(not options.isDir(options.output)):
         options.output = ""
     runJoin(options)
-    print("complete.")
+    print()
+    print("join complete.")
 
 def runJoin(options: JoinMp3Options):
     mp3Files = options.getAllMp3Files()
     part = 1
     fileTitle = options.fileTitle.replace(".mp3", "")
-    print("beginning .mp3 join over "+str(len(mp3Files))+" files...")
-
+    print("attempting to join "+str(len(mp3Files))+" .mp3 files:")
     joined = None
+    current = ""
     for file in mp3Files:
         mp3 = AudioSegment.from_mp3(file)
         if(not joined):
+            current = fileTitle+".mp3" if part < 2 else fileTitle + "[" + str(part) + "].mp3"
+            print()
+            print("starting new file, "+current+":\r\n    with "+file.split(options.dirChar)[-1]+"...")
             joined = mp3
         else:
-            joined += mp3
+            print(" ...joining "+current+"\r\n    with "+file.split(options.dirChar)[-1]+"...")
+            joined = joined + mp3
         if(options.timeCapPerFile != 0 and len(mp3) >= options.timeCapPerFile):
-            print("writing "+options.output + fileTitle+"["+str(part)+"].mp3...")
-            joined.export(options.output + fileTitle+"["+str(part)+"].mp3", format="mp3")
+            print("***  writing " + options.output + current + "...")
+            joined.export(options.output + current, format="mp3")
             joined = None
             part += 1
     if(joined):
-        name = options.fileTitle+"["+str(part)+"].mp3" if part > 1 else options.fileTitle+".mp3"
-        print("writing "+ options.output +name+"...")
-        joined.export(options.output + name, format="mp3")
+        print("***  writing " + current + "...")
+        joined.export(options.output + current, format="mp3")
+        joined = None
 
 def getOptionsFromFile(path: string) -> JoinMp3Options:
     optionSet = JoinMp3Options()
@@ -83,7 +91,6 @@ def getOptionsFromFile(path: string) -> JoinMp3Options:
                 arg = line[i : end_i] if end_i > 0 else line[i:]
                 options[option] = arg
                 satisfied.append(option)
-    
     if(options["pathToFiles"]):
         optionSet.pathToFiles = options["pathToFiles"]
     if(options["filterBy"]):
@@ -92,39 +99,32 @@ def getOptionsFromFile(path: string) -> JoinMp3Options:
         optionSet.fileTitle = options["fileTitle"] if options["fileTitle"] not in [None, "", " "] else "file"
     if(options["output"]):
         optionSet.output = options["output"]
-
-    if(not options["timeCapPerFile"]):
-        return optionSet
-    
-    try:
-        optionSet.timeCapPerFile = int(options["timeCapPerFile"])
-    except ValueError:
-        optionSet.timeCapPerFile = None
+    if(options["timeCapPerFile"]):
+        try:
+            optionSet.timeCapPerFile = int(options["timeCapPerFile"])
+            optionSet.timeCapPerFile *= 60000
+        except ValueError:
+            optionSet.timeCapPerFile = 0
     return optionSet
 
 def getOptionsFromUser() -> JoinMp3Options:
     options = JoinMp3Options()
-    options.pathToFiles = input("input directory: ")    
-    options.output = input("output directory: ")    
+    options.pathToFiles = input("input directory: ")
+    options.output = input("output directory: ") 
     all = input("merge all? (y/n) ").lower() == "y"
     if(all):
         options.filterBy = None
     else:
         options.filterBy = input("filter by? (no regex yet) ")
-    
     try:
         options.timeCapPerFile = int(input("time limit per file? (in min): "))
         options.timeCapPerFile *= 60000
-        if(options.timeCapPerFile == 0):
-            options.timeCapPerFile = None
     except ValueError:
-        options.timeCapPerFile = None
-    
+        options.timeCapPerFile = 0
     options.fileTitle = input("new name for file(s)? ")
     return options
 
-def smartSort( l ): 
-    """ Sort the given iterable in the way that humans expect.""" 
+def smartSort(l): 
     convert = lambda text: int(text) if text.isdigit() else text 
     alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ] 
     return sorted(l, key = alphanum_key)
