@@ -4,6 +4,7 @@ import glob
 import argparse
 import sys
 import os
+import re 
 
 class JoinMp3Options():
     def __init__(self):
@@ -24,7 +25,8 @@ class JoinMp3Options():
             self.pathToFiles += dirChar
         if(not self.output.endswith(dirChar) and dirChar not in [None, "", " "]):
             self.output += dirChar
-        return glob.glob(self.pathToFiles+"*.mp3")
+        mp3s = glob.glob(self.pathToFiles+"*.mp3")
+        return smartSort(mp3s)
 
 
 def main(args: argparse.Namespace):
@@ -120,6 +122,12 @@ def getOptionsFromUser() -> JoinMp3Options:
     
     options.fileTitle = input("new name for file(s)? ")
     return options
+
+def smartSort( l ): 
+    """ Sort the given iterable in the way that humans expect.""" 
+    convert = lambda text: int(text) if text.isdigit() else text 
+    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ] 
+    return sorted(l, key = alphanum_key)
 
 # Execute the wrapper
 if __name__ == "__main__":
