@@ -1,0 +1,3 @@
+pathToFiles: C:\Users\gsaiia\source\Seventh_Tower-Book2,
+fileTitle: TheSeventhTower_2,
+output: C:\Users\gsaiia\source\TheSeventhTower,
